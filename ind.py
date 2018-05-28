@@ -1,6 +1,7 @@
 import RPi.GPIO as GPIO
 from time import sleep, localtime, strftime
 from bitarray import bitarray
+import sys
 
 def ON(pin):
     GPIO.output(pin, GPIO.LOW)
@@ -120,13 +121,27 @@ def OUTPUT_LINE(str):
 # Main program
 INIT()
 
-while True:
-    DT = strftime('%Y-%m-%d', localtime()).ljust(10)
-    TM = strftime('  %H %M %S', localtime()).ljust(10)
-    SEC = int(strftime('%S', localtime())[1])
+try:
+    while True:
+        DT = strftime('%Y-%m-%d', localtime()).ljust(10)
+        TM = strftime('  %H %M %S', localtime()).ljust(10)
+        SEC = int(strftime('%S', localtime())[1])
 
-    if SEC >=0 and SEC <5:
-        OUTPUT_LINE(DT)
-    elif SEC >=5 and SEC<10:
-        OUTPUT_LINE(TM)
+        if SEC >=0 and SEC <5:
+            OUTPUT_LINE(DT)
+        elif SEC >=5 and SEC<10:
+            OUTPUT_LINE(TM)
 
+except KeyboardInterrupt:
+    OFF(DA_IN)
+    k=1
+    while k<=32:
+        OFF(CLOCK)
+        ON(CLOCK)
+        k=k+1
+    FINALIZE()
+
+    GPIO.cleanup()
+
+    print('Bye!')
+    sys.exit(0)
