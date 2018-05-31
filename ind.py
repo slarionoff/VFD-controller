@@ -33,7 +33,7 @@ def init():
     PLACEHOLDERS_AMT = 10
 
     global n_bit_lines
-    n_bit_lines = math.floor(math.log10(USED_SHIFT_REGS_AMT * PLACEHOLDERS_AMT))
+    n_bit_lines = int(math.floor(math.log10(USED_SHIFT_REGS_AMT * PLACEHOLDERS_AMT)))
 
     # Nice header lines with bit numbers
     global bit_num_line
@@ -43,7 +43,7 @@ def init():
         j = 1
         s = ''
         while j <= USED_SHIFT_REGS_AMT * PLACEHOLDERS_AMT:
-            s += (str(j).rjust(n_bit_lines + 1,'0'))[i]
+            s += (str(j).rjust(n_bit_lines + 1, '0'))[i]
             j = j + 1
         bit_num_line.append(s)
         i = i + 1
@@ -120,7 +120,7 @@ def debug_print_ba():
 
 
 def fill_bitarray(input_string):
-#    print(input_string)
+    # print(input_string)
 
     global ba
     ba = bitarray('0' * USED_SHIFT_REGS_AMT) * PLACEHOLDERS_AMT
@@ -136,7 +136,8 @@ def fill_bitarray(input_string):
             if ssi[S] == 1:
                 ba[(i - 1) * USED_SHIFT_REGS_AMT + DISPLAY_ABCDEFG_Q[S] - 1] = True
         i = i + 1
-#    debug_print_ba()
+    # debug_print_ba()
+
 
 def send_bitarray_to_indicator():
     i = 1
@@ -158,6 +159,7 @@ def send_bitarray_to_indicator():
 init()
 
 str_to_show_prev = ''
+str_to_show = ''.ljust(PLACEHOLDERS_AMT)
 
 try:
     while True:
@@ -166,7 +168,7 @@ try:
         TC = '   t -15°C'.ljust(PLACEHOLDERS_AMT)
         SEC = int(strftime('%S', localtime())[0])
 
-        if   SEC == 0 or SEC == 3:
+        if SEC == 0 or SEC == 3:
             str_to_show = DT
         elif SEC == 1 or SEC == 4:
             str_to_show = TM
