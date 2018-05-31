@@ -2,6 +2,7 @@ import RPi.GPIO as GPIO
 from time import sleep, localtime, strftime
 from bitarray import bitarray
 import sys
+import math
 
 
 def on(pin):
@@ -13,8 +14,6 @@ def off(pin):
 
 
 def init():
-    print('Initialization Started')
-
     GPIO.setmode(GPIO.BCM)
 
     global DA_IN
@@ -28,7 +27,26 @@ def init():
     STB = 25
 
     global USED_SHIFT_REGS_AMT
-    USED_SHIFT_REGS_AMT = 32
+    USED_SHIFT_REGS_AMT = 19
+
+    global PLACEHOLDERS_AMT
+    PLACEHOLDERS_AMT = 10
+
+    global n_bit_lines
+    n_bit_lines = math.floor(math.log10(USED_SHIFT_REGS_AMT * PLACEHOLDERS_AMT))
+
+    # Nice header lines with bit numbers
+    global bit_num_line
+    i = 0
+    bit_num_line = []
+    while i <= n_bit_lines:
+        j = 1
+        s = ''
+        while j <= USED_SHIFT_REGS_AMT * PLACEHOLDERS_AMT:
+            s += (str(j).rjust(n_bit_lines + 1,'0'))[i]
+            j = j + 1
+        bit_num_line.append(s)
+        i = i + 1
 
     GPIO.setup([DA_IN, LATCH, CLOCK, STB], GPIO.OUT)
 
@@ -63,7 +81,7 @@ def init():
         'DP': 4
     }
 
-    #   Standard seven-segment indicator numbers. In my case I have also H (underscore)
+    #   Standard seven-segment indicator numbers (A-G). In my case I have also H (underscore) and DP (decimal point)
     global SYMBOLS
     SYMBOLS = {
         '0': {'A': 1, 'B': 1, 'C': 1, 'D': 1, 'E': 1, 'F': 1, 'G': 0, 'H': 0, 'DP': 0},
@@ -79,10 +97,11 @@ def init():
         ' ': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'DP': 0},
         '.': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'DP': 1},
         '-': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 1, 'H': 0, 'DP': 0},
-        '_': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 1, 'DP': 0}
+        '_': {'A': 0, 'B': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 1, 'DP': 0},
+        '°': {'A': 1, 'B': 1, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 1, 'H': 0, 'DP': 0},
+        't': {'A': 0, 'B': 0, 'C': 0, 'D': 1, 'E': 1, 'F': 1, 'G': 1, 'H': 0, 'DP': 0},
+        'C': {'A': 1, 'B': 0, 'C': 0, 'D': 1, 'E': 1, 'F': 1, 'G': 0, 'H': 0, 'DP': 0}
     }
-
-    print('Initialization Finished')
 
 
 def finalize():
@@ -92,57 +111,76 @@ def finalize():
     off(STB)
 
 
-def output_string(input_string):
-    # print(input_string)
+def debug_print_ba():
+    i = 0
+    while i <= n_bit_lines:
+        print(''.join(bit_num_line[i]))
+        i = i + 1
+    print(ba.to01())
 
-    # print('00000000011111111112222222222333')
 
-    # print('12345678901234567890123456789012')
+def fill_bitarray(input_string):
+#    print(input_string)
+
+    global ba
+    ba = bitarray('0' * USED_SHIFT_REGS_AMT) * PLACEHOLDERS_AMT
 
     i = 1
-    while i <= 10:
-        # Create a bit array presenting Q-outputs.
-        ba = bitarray('0' * USED_SHIFT_REGS_AMT)
+    while i <= PLACEHOLDERS_AMT:
+        # Fill a bitarray presenting Q-outputs.
         placeholder_bit = PLACEHOLDERS[i]
-        ba[placeholder_bit - 1] = True
+        ba[(i - 1) * USED_SHIFT_REGS_AMT + placeholder_bit - 1] = True
 
         ssi = SYMBOLS[input_string[i - 1]]
-        j = 0
         for S in ssi:
             if ssi[S] == 1:
-                ba[DISPLAY_ABCDEFG_Q[S] - 1] = True
-            j = j + 1
+                ba[(i - 1) * USED_SHIFT_REGS_AMT + DISPLAY_ABCDEFG_Q[S] - 1] = True
+        i = i + 1
+#    debug_print_ba()
 
-        # print(ba.to01())
-
-        # Write bit array to Indicator chip
+def send_bitarray_to_indicator():
+    i = 1
+    while i <= PLACEHOLDERS_AMT:
         k = 1
         while k <= USED_SHIFT_REGS_AMT:
             off(CLOCK)
-            if ba[USED_SHIFT_REGS_AMT - k]:
+            if ba[i * USED_SHIFT_REGS_AMT - k]:
                 on(DA_IN)
             else:
                 off(DA_IN)
             on(CLOCK)
             k = k + 1
         finalize()
-
         i = i + 1
 
 
 # Main program
 init()
 
+str_to_show_prev = ''
+
 try:
     while True:
-        DT = strftime('%Y-%m-%d', localtime()).ljust(10)
-        TM = strftime('  %H %M %S', localtime()).ljust(10)
-        SEC = int(strftime('%S', localtime())[1])
+        DT = strftime('%Y-%m-%d', localtime()).ljust(PLACEHOLDERS_AMT)
+        TM = strftime('  %H %M %S', localtime()).ljust(PLACEHOLDERS_AMT)
+        TC = '   t -15°C'.ljust(PLACEHOLDERS_AMT)
+        SEC = int(strftime('%S', localtime())[0])
 
-        if 0 <= SEC < 5:
-            output_string(DT)
-        elif 5 <= SEC < 10:
-            output_string(TM)
+        if   SEC == 0 or SEC == 3:
+            str_to_show = DT
+        elif SEC == 1 or SEC == 4:
+            str_to_show = TM
+        elif SEC == 2 or SEC == 5:
+            str_to_show = TC
+
+#        str_to_show = TM
+#        str_to_show = '0123456789'
+
+        if str_to_show != str_to_show_prev:
+            fill_bitarray(str_to_show)
+            str_to_show_prev = str_to_show
+
+        send_bitarray_to_indicator()
 
 except KeyboardInterrupt:
     off(DA_IN)
