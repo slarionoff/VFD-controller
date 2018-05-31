@@ -1,19 +1,19 @@
 import RPi.GPIO as GPIO
-from time import sleep, localtime, strftime
+from time import localtime, strftime
 from bitarray import bitarray
 import sys
 import math
 
 
-def on(pin):
+def ON(pin):
     GPIO.output(pin, GPIO.LOW)
 
 
-def off(pin):
+def OFF(pin):
     GPIO.output(pin, GPIO.HIGH)
 
 
-def init():
+def INIT():
     GPIO.setmode(GPIO.BCM)
 
     global DA_IN
@@ -21,51 +21,54 @@ def init():
     global CLOCK
     global STB
 
+    # RPi GPIO pin numbers
     DA_IN = 22
     LATCH = 23
     CLOCK = 24
-    STB = 25
+    STB   = 25
 
+    # Amount of used shift registers
     global USED_SHIFT_REGS_AMT
     USED_SHIFT_REGS_AMT = 19
 
+    # Amount of symbols on the indicator
     global PLACEHOLDERS_AMT
     PLACEHOLDERS_AMT = 10
 
-    global n_bit_lines
-    n_bit_lines = int(math.floor(math.log10(USED_SHIFT_REGS_AMT * PLACEHOLDERS_AMT)))
+    global N_BIT_LINES
+    N_BIT_LINES = int(math.floor(math.log10(USED_SHIFT_REGS_AMT * PLACEHOLDERS_AMT)))
 
-    # Nice header lines with bit numbers
-    global bit_num_line
+    # Nice header lines with bit numbers for debug
+    global BIT_NUM_LINE
     i = 0
-    bit_num_line = []
-    while i <= n_bit_lines:
+    BIT_NUM_LINE = []
+    while i <= N_BIT_LINES:
         j = 1
         s = ''
         while j <= USED_SHIFT_REGS_AMT * PLACEHOLDERS_AMT:
-            s += (str(j).rjust(n_bit_lines + 1, '0'))[i]
+            s += (str(j).rjust(N_BIT_LINES + 1, '0'))[i]
             j = j + 1
-        bit_num_line.append(s)
+        BIT_NUM_LINE.append(s)
         i = i + 1
 
     GPIO.setup([DA_IN, LATCH, CLOCK, STB], GPIO.OUT)
 
-    on(STB)
-    off(LATCH)
+    ON(STB)
+    OFF(LATCH)
 
-    #   Magic numbers below are taken from an exact indicator board design
+    # Magic numbers below are taken from an exact indicator board design
     global PLACEHOLDERS
     PLACEHOLDERS = {
         10: 13,
-        9: 12,
-        8: 11,
-        7: 10,
-        6: 9,
-        5: 8,
-        4: 7,
-        3: 6,
-        2: 5,
-        1: 19
+        9:  12,
+        8:  11,
+        7:  10,
+        6:   9,
+        5:   8,
+        4:   7,
+        3:   6,
+        2:   5,
+        1:  19
     }
 
     global DISPLAY_ABCDEFG_Q
@@ -74,14 +77,14 @@ def init():
         'B': 16,
         'C': 15,
         'D': 14,
-        'E': 3,
-        'F': 1,
-        'G': 2,
+        'E':  3,
+        'F':  1,
+        'G':  2,
         'H': 18,
         'DP': 4
     }
 
-    #   Standard seven-segment indicator numbers (A-G). In my case I have also H (underscore) and DP (decimal point)
+    # Standard seven-segment indicator numbers (A-G). In my case I have also H (underscore) and DP (decimal point)
     global SYMBOLS
     SYMBOLS = {
         '0': {'A': 1, 'B': 1, 'C': 1, 'D': 1, 'E': 1, 'F': 1, 'G': 0, 'H': 0, 'DP': 0},
@@ -104,62 +107,61 @@ def init():
     }
 
 
-def finalize():
-    on(STB)
-    on(LATCH)
-    off(LATCH)
-    off(STB)
+def FINALIZE():
+    ON(STB)
+    ON(LATCH)
+    OFF(LATCH)
+    OFF(STB)
 
 
-def debug_print_ba():
+def DEBUG_PRINT_BA():
     i = 0
-    while i <= n_bit_lines:
-        print(''.join(bit_num_line[i]))
+    while i <= N_BIT_LINES:
+        print(''.join(BIT_NUM_LINE[i]))
         i = i + 1
-    print(ba.to01())
+    print(BA.to01())
 
 
-def fill_bitarray(input_string):
-    # print(input_string)
+def FILL_BITARRAY(INPUT_STRING):
+    # print(INPUT_STRING)
 
-    global ba
-    ba = bitarray('0' * USED_SHIFT_REGS_AMT) * PLACEHOLDERS_AMT
+    global BA
+    BA = bitarray('0' * USED_SHIFT_REGS_AMT) * PLACEHOLDERS_AMT
 
     i = 1
     while i <= PLACEHOLDERS_AMT:
-        # Fill a bitarray presenting Q-outputs.
-        placeholder_bit = PLACEHOLDERS[i]
-        ba[(i - 1) * USED_SHIFT_REGS_AMT + placeholder_bit - 1] = True
+        # Fill a bit array presenting Q-outputs.
+        BA[(i - 1) * USED_SHIFT_REGS_AMT + PLACEHOLDERS[i] - 1] = True
 
-        ssi = SYMBOLS[input_string[i - 1]]
+        ssi = SYMBOLS[INPUT_STRING[i - 1]]
         for S in ssi:
             if ssi[S] == 1:
-                ba[(i - 1) * USED_SHIFT_REGS_AMT + DISPLAY_ABCDEFG_Q[S] - 1] = True
+                BA[(i - 1) * USED_SHIFT_REGS_AMT + DISPLAY_ABCDEFG_Q[S] - 1] = True
         i = i + 1
-    # debug_print_ba()
+    # DEBUG_PRINT_BA()
 
 
-def send_bitarray_to_indicator():
+def SEND_BITARRAY_TO_INDICATOR():
     i = 1
     while i <= PLACEHOLDERS_AMT:
         k = 1
         while k <= USED_SHIFT_REGS_AMT:
-            off(CLOCK)
-            if ba[i * USED_SHIFT_REGS_AMT - k]:
-                on(DA_IN)
+            OFF(CLOCK)
+            if BA[i * USED_SHIFT_REGS_AMT - k]:
+                ON(DA_IN)
             else:
-                off(DA_IN)
-            on(CLOCK)
+                OFF(DA_IN)
+            ON(CLOCK)
             k = k + 1
-        finalize()
+        FINALIZE()
         i = i + 1
 
 
 # Main program
-init()
+INIT()
 
-str_to_show_prev = ''
-str_to_show = ''.ljust(PLACEHOLDERS_AMT)
+STR_TO_SHOW_PREV = ''
+STR_TO_SHOW = ''.ljust(PLACEHOLDERS_AMT)
 
 try:
     while True:
@@ -169,29 +171,29 @@ try:
         SEC = int(strftime('%S', localtime())[0])
 
         if SEC == 0 or SEC == 3:
-            str_to_show = DT
+            STR_TO_SHOW = DT
         elif SEC == 1 or SEC == 4:
-            str_to_show = TM
+            STR_TO_SHOW = TM
         elif SEC == 2 or SEC == 5:
-            str_to_show = TC
+            STR_TO_SHOW = TC
 
-#        str_to_show = TM
-#        str_to_show = '0123456789'
+#        STR_TO_SHOW = TM
+#        STR_TO_SHOW = '0123456789'
 
-        if str_to_show != str_to_show_prev:
-            fill_bitarray(str_to_show)
-            str_to_show_prev = str_to_show
+        if STR_TO_SHOW != STR_TO_SHOW_PREV:
+            FILL_BITARRAY(STR_TO_SHOW)
+            STR_TO_SHOW_PREV = STR_TO_SHOW
 
-        send_bitarray_to_indicator()
+        SEND_BITARRAY_TO_INDICATOR()
 
 except KeyboardInterrupt:
-    off(DA_IN)
+    OFF(DA_IN)
     m = 1
     while m <= USED_SHIFT_REGS_AMT:
-        off(CLOCK)
-        on(CLOCK)
+        OFF(CLOCK)
+        ON(CLOCK)
         m = m + 1
-    finalize()
+    FINALIZE()
 
     GPIO.cleanup()
 
