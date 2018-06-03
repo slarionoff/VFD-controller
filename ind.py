@@ -3,6 +3,8 @@ from time import localtime, strftime
 from bitarray import bitarray
 import sys
 import math
+from threading import Thread
+import queue
 
 
 def ON(pin):
@@ -125,7 +127,6 @@ def DEBUG_PRINT_BA():
 def FILL_BITARRAY(INPUT_STRING):
     # print(INPUT_STRING)
 
-    global BA
     BA = bitarray('0' * USED_SHIFT_REGS_AMT) * PLACEHOLDERS_AMT
 
     i = 1
@@ -138,64 +139,73 @@ def FILL_BITARRAY(INPUT_STRING):
             if ssi[S] == 1:
                 BA[(i - 1) * USED_SHIFT_REGS_AMT + DISPLAY_ABCDEFG_Q[S] - 1] = True
         i = i + 1
-    # DEBUG_PRINT_BA()
+    # DEBUG_PRINT_BA(BA)
+    q.put(BA)
 
 
 def SEND_BITARRAY_TO_INDICATOR():
-    i = 1
-    while i <= PLACEHOLDERS_AMT:
-        k = 1
-        while k <= USED_SHIFT_REGS_AMT:
-            OFF(CLOCK)
-            if BA[i * USED_SHIFT_REGS_AMT - k]:
-                ON(DA_IN)
-            else:
-                OFF(DA_IN)
-            ON(CLOCK)
-            k = k + 1
-        FINALIZE()
-        i = i + 1
+    BA = q.get()
+    while True:
+        if not q.empty():
+            BA = q.get()
+        #DEBUG_PRINT_BA(BA)
+        i = 1
+        while i <= PLACEHOLDERS_AMT:
+            k = 1
+            while k <= USED_SHIFT_REGS_AMT:
+                OFF(CLOCK)
+                if BA[i * USED_SHIFT_REGS_AMT - k]:
+                    ON(DA_IN)
+                else:
+                    OFF(DA_IN)
+                ON(CLOCK)
+                k = k + 1
+            FINALIZE()
+            i = i + 1
 
 
 # Main program
 INIT()
 
-STR_TO_SHOW_PREV = ''
-STR_TO_SHOW = ''.ljust(PLACEHOLDERS_AMT)
+q = queue.Queue()
+q.put(bitarray('0' * USED_SHIFT_REGS_AMT) * PLACEHOLDERS_AMT)
 
-try:
-    while True:
-        DT = strftime('%Y-%m-%d', localtime()).ljust(PLACEHOLDERS_AMT)
-        TM = strftime('  %H %M %S', localtime()).ljust(PLACEHOLDERS_AMT)
-        TC = '   t -15°C'.ljust(PLACEHOLDERS_AMT)
-        SEC = int(strftime('%S', localtime())[0])
+if __name__ == "__main__":
+    t1 = Thread(target = SEND_BITARRAY_TO_INDICATOR)
+    t1.setDaemon(True)
+    t1.start()
 
-        if SEC == 0 or SEC == 3:
-            STR_TO_SHOW = DT
-        elif SEC == 1 or SEC == 4:
-            STR_TO_SHOW = TM
-        elif SEC == 2 or SEC == 5:
-            STR_TO_SHOW = TC
+    STR_TO_SHOW_PREV = ''
+    STR_TO_SHOW = ''.ljust(PLACEHOLDERS_AMT)
 
-#        STR_TO_SHOW = TM
-#        STR_TO_SHOW = '0123456789'
+    try:
+        while True:
+            DT = strftime('%Y-%m-%d', localtime()).ljust(PLACEHOLDERS_AMT)
+            TM = strftime('  %H %M %S', localtime()).ljust(PLACEHOLDERS_AMT)
+            TC = '   t -15°C'.ljust(PLACEHOLDERS_AMT)
+            SEC = int(strftime('%S', localtime())[0])
 
-        if STR_TO_SHOW != STR_TO_SHOW_PREV:
-            FILL_BITARRAY(STR_TO_SHOW)
-            STR_TO_SHOW_PREV = STR_TO_SHOW
+            if SEC == 0 or SEC == 3:
+                STR_TO_SHOW = DT
+            elif SEC == 1 or SEC == 4:
+                STR_TO_SHOW = TM
+            elif SEC == 2 or SEC == 5:
+                STR_TO_SHOW = TC
 
-        SEND_BITARRAY_TO_INDICATOR()
+            if STR_TO_SHOW != STR_TO_SHOW_PREV:
+                FILL_BITARRAY(STR_TO_SHOW)
+                STR_TO_SHOW_PREV = STR_TO_SHOW
 
-except KeyboardInterrupt:
-    OFF(DA_IN)
-    m = 1
-    while m <= USED_SHIFT_REGS_AMT:
-        OFF(CLOCK)
-        ON(CLOCK)
-        m = m + 1
-    FINALIZE()
+    except KeyboardInterrupt:
+        OFF(DA_IN)
+        m = 1
+        while m <= USED_SHIFT_REGS_AMT:
+            OFF(CLOCK)
+            ON(CLOCK)
+            m = m + 1
+        FINALIZE()
 
-    GPIO.cleanup()
+        GPIO.cleanup()
 
-    print('Bye!')
-    sys.exit(0)
+        print('Bye!')
+        sys.exit(0)
