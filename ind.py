@@ -49,9 +49,9 @@ def INIT():
         s = ''
         while j <= USED_SHIFT_REGS_AMT * PLACEHOLDERS_AMT:
             s += (str(j).rjust(N_BIT_LINES + 1, '0'))[i]
-            j = j + 1
+            j += 1
         BIT_NUM_LINE.append(s)
-        i = i + 1
+        i += 1
 
     GPIO.setup([DA_IN, LATCH, CLOCK, STB], GPIO.OUT)
 
@@ -120,7 +120,7 @@ def DEBUG_PRINT_BA():
     i = 0
     while i <= N_BIT_LINES:
         print(''.join(BIT_NUM_LINE[i]))
-        i = i + 1
+        i += 1
     print(BA.to01())
 
 
@@ -138,7 +138,7 @@ def FILL_BITARRAY(INPUT_STRING):
         for S in ssi:
             if ssi[S] == 1:
                 BA[(i - 1) * USED_SHIFT_REGS_AMT + DISPLAY_ABCDEFG_Q[S] - 1] = True
-        i = i + 1
+        i += 1
     # DEBUG_PRINT_BA(BA)
     q.put(BA)
 
@@ -159,9 +159,9 @@ def SEND_BITARRAY_TO_INDICATOR():
                 else:
                     OFF(DA_IN)
                 ON(CLOCK)
-                k = k + 1
+                k += 1
             FINALIZE()
-            i = i + 1
+            i += 1
 
 
 # Main program
@@ -202,7 +202,7 @@ if __name__ == "__main__":
         while m <= USED_SHIFT_REGS_AMT:
             OFF(CLOCK)
             ON(CLOCK)
-            m = m + 1
+            m += 1
         FINALIZE()
 
         GPIO.cleanup()
